@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { questions } from "./lib/questions";
+import { speak, startListening } from "./lib/voice";
 
 const EvilEye = dynamic(() => import("./components/EvilEye"), { ssr: false });
 
@@ -13,6 +14,8 @@ export default function Home() {
   const [score, setScore] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [scores, setScores] = useState<{ name: string; score: number }[]>([]);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [listening, setListening] = useState(false);
   const progressRef = useRef<HTMLDivElement | null>(null);
 
   const currentQ = questions[index];
@@ -70,6 +73,83 @@ export default function Home() {
     setScores(sorted);
   };
 
+  const enhanceMysticTone = (text: string) => {
+    return `... ${text}`;
+  };
+
+  const checkVoiceAnswer = async (transcript: string) => {
+    const localMatch = currentQ.options.find((opt) =>
+      transcript.includes(opt.toLowerCase())
+    );
+
+    if (localMatch) {
+      speak("Ah... you have chosen wisely...", () => {
+        handleAnswer(localMatch);
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/grok", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          transcript,
+          options: currentQ.options,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.answer) {
+        const mysticText = enhanceMysticTone(
+          data.response || "The spirits acknowledge your answer..."
+        );
+
+        speak(mysticText, () => {
+          handleAnswer(data.answer);
+        });
+      } else {
+        speak("The spirits are uncertain... try again.", () => {
+          setListening(true);
+          startListening((t) => {
+            setListening(false);
+            void checkVoiceAnswer(t);
+          });
+        });
+      }
+    } catch {
+      speak("A disturbance in the ether... try again.", () => {
+        setListening(true);
+        startListening((t) => {
+          setListening(false);
+          void checkVoiceAnswer(t);
+        });
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!voiceMode || screen !== "quiz") return;
+
+    const text = `Question ${index + 1}. ${currentQ.question}`;
+    speak(text, () => {
+      setListening(true);
+      startListening((transcript) => {
+        setListening(false);
+        void checkVoiceAnswer(transcript);
+      });
+    });
+  }, [index, voiceMode, screen]);
+
+  useEffect(() => {
+    if (screen !== "quiz" || !voiceMode) {
+      setListening(false);
+    }
+  }, [screen, voiceMode]);
+
   return (
     <div className="app-shell">
       <div className="evil-eye-bg" aria-hidden="true">
@@ -94,7 +174,15 @@ export default function Home() {
             <div key={index} className="quiz-layout fade-slide">
               <div className="quiz-question-card">
                 <div>
-                  <h1 className="title">🔮 Mystic Meme Quiz</h1>
+                  <div className="title-row">
+                    <h1 className="title">🔮 Mystic Meme Quiz</h1>
+                    <button
+                      onClick={() => setVoiceMode((v) => !v)}
+                      className="btn voice-toggle"
+                    >
+                      🎤 {voiceMode ? "Voice ON" : "Voice OFF"}
+                    </button>
+                  </div>
                   <div className="progress-wrap">
                     <div className="progress-meta">
                       <span>Question {index + 1}</span>
@@ -110,6 +198,9 @@ export default function Home() {
 
                 <div className="question-block">
                   <h2 className="question">{currentQ.question}</h2>
+                  {voiceMode && listening && (
+                    <p className="listening">🎧 Listening...</p>
+                  )}
                   <div className="options">
                     {currentQ.options.map((opt) => (
                       <button
@@ -141,7 +232,15 @@ export default function Home() {
             </div>
           ) : (
             <div className="card">
-              <h1 className="title">🔮 Mystic Meme Quiz</h1>
+              <div className="title-row">
+                <h1 className="title">🔮 Mystic Meme Quiz</h1>
+                <button
+                  onClick={() => setVoiceMode((v) => !v)}
+                  className="btn voice-toggle"
+                >
+                  🎤 {voiceMode ? "Voice ON" : "Voice OFF"}
+                </button>
+              </div>
 
               {/* START */}
               {screen === "start" && (
