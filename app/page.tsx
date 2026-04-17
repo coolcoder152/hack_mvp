@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { questions } from "./lib/questions";
 
 export default function Home() {
@@ -7,124 +8,159 @@ export default function Home() {
   const [name, setName] = useState("");
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [scores, setScores] = useState<{ name: string; score: number }[]>([]);
+  const progressRef = useRef<HTMLDivElement | null>(null);
 
   const currentQ = questions[index];
+  const progress = ((index + 1) / questions.length) * 100;
 
-  // Start quiz
+  useEffect(() => {
+    if (!progressRef.current) return;
+    progressRef.current.style.width = `${progress}%`;
+  }, [progress]);
+
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("scores") || "[]");
+
+    const sorted = stored
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 5);
+
+    setScores(sorted);
+  }, []);
+
   const startQuiz = () => {
     if (!name) return alert("Enter your name");
     setScreen("quiz");
   };
 
-  // Handle answer
   const handleAnswer = (opt: string) => {
+    if (selected) return; // prevent double click
+    setSelected(opt);
+
     if (opt === currentQ.answer) {
       setScore((prev) => prev + 1);
     }
 
-    if (index + 1 < questions.length) {
-      setIndex(index + 1);
-    } else {
-      saveScore();
-      setScreen("result");
-    }
+    setTimeout(() => {
+      if (index + 1 < questions.length) {
+        setIndex(index + 1);
+        setSelected(null);
+      } else {
+        saveScore();
+        setScreen("result");
+      }
+    }, 600);
   };
 
-  // Save leaderboard
   const saveScore = () => {
-    const prev = JSON.parse(localStorage.getItem("scores") || "[]");
+    if (typeof window === "undefined") return;
 
+    const prev = JSON.parse(localStorage.getItem("scores") || "[]");
     const updated = [...prev, { name, score }];
     localStorage.setItem("scores", JSON.stringify(updated));
+
+    const sorted = updated
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 5);
+    setScores(sorted);
   };
 
-  // Load leaderboard
-  const scores = JSON.parse(localStorage.getItem("scores") || "[]")
-    .sort((a: any, b: any) => b.score - a.score)
-    .slice(0, 5);
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0f0f1a",
-        color: "#e0e0ff",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <div style={{ textAlign: "center", maxWidth: 400 }}>
-        <h1>🔮 Mystic Meme Quiz</h1>
+    <div className="container">
+      <div className="card">
+        <h1 className="title">🔮 Mystic Meme Quiz</h1>
 
-        {/* START SCREEN */}
+        {/* START */}
         {screen === "start" && (
           <>
+            <p className="subtitle">
+              "Only the chosen ones can decode the memes..."
+            </p>
+
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your name"
-              style={{
-                padding: 10,
-                marginTop: 20,
-                width: "100%",
-                borderRadius: 8,
-                border: "none",
-              }}
+              className="input"
             />
 
-            <button
-              onClick={startQuiz}
-              style={buttonStyle}
-            >
+            <button onClick={startQuiz} className="btn">
               Enter the Arena
             </button>
           </>
         )}
 
-        {/* QUIZ SCREEN */}
+        {/* QUIZ */}
         {screen === "quiz" && currentQ && (
-          <>
-            <img
-              src={currentQ.image}
-              width={300}
-              style={{ borderRadius: 10 }}
-            />
+          <div key={index} className="quiz-shell fade-slide">
+            <div className="quiz-left">
+              <div className="progress-wrap">
+                <div className="progress-meta">
+                  <span>Question {index + 1}</span>
+                  <span>
+                    {index + 1}/{questions.length}
+                  </span>
+                </div>
+                <div className="progress">
+                  <div ref={progressRef} className="progress-fill" />
+                </div>
+              </div>
 
-            <h2 style={{ marginTop: 20 }}>{currentQ.question}</h2>
+              <h2 className="question">{currentQ.question}</h2>
 
-            {currentQ.options.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => handleAnswer(opt)}
-                style={buttonStyle}
-              >
-                {opt}
-              </button>
-            ))}
-          </>
+              <div className="options">
+                {currentQ.options.map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => handleAnswer(opt)}
+                    className={`btn option-btn ${
+                      selected === opt ? "option-selected" : ""
+                    } ${selected && selected !== opt ? "option-dimmed" : ""}`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="quiz-right">
+              <Image
+                src={currentQ.image}
+                alt="Meme question visual"
+                width={720}
+                height={480}
+                className="image"
+                priority
+              />
+            </div>
+          </div>
         )}
 
-        {/* RESULT SCREEN */}
+        {/* RESULT */}
         {screen === "result" && (
           <>
-            <h2>✨ Your Score: {score}</h2>
+            <h2 className="score">✨ Your Score: {score}</h2>
 
-            <h3>🏆 Leaderboard</h3>
-
-            {scores.map((s: any, i: number) => (
-              <p key={i}>
-                {s.name} — {s.score}
-              </p>
-            ))}
+            <div className="leaderboard">
+              <h3>🏆 Leaderboard</h3>
+              {scores.map((s: any, i: number) => (
+                <div key={i} className="row">
+                  <span>{s.name}</span>
+                  <span>{s.score}</span>
+                </div>
+              ))}
+            </div>
 
             <button
               onClick={() => {
                 setIndex(0);
                 setScore(0);
+                setSelected(null);
                 setScreen("start");
               }}
-              style={buttonStyle}
+              className="btn"
             >
               Play Again
             </button>
@@ -134,15 +170,3 @@ export default function Home() {
     </div>
   );
 }
-
-const buttonStyle = {
-  display: "block",
-  width: "100%",
-  padding: 12,
-  marginTop: 10,
-  borderRadius: 10,
-  border: "none",
-  background: "#1f1f3a",
-  color: "white",
-  cursor: "pointer",
-};
