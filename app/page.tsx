@@ -1,7 +1,10 @@
 "use client";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { questions } from "./lib/questions";
+
+const EvilEye = dynamic(() => import("./components/EvilEye"), { ssr: false });
 
 export default function Home() {
   const [screen, setScreen] = useState<"start" | "quiz" | "result">("start");
@@ -68,104 +71,132 @@ export default function Home() {
   };
 
   return (
-    <div className="container">
-      <div className="card">
-        <h1 className="title">🔮 Mystic Meme Quiz</h1>
+    <div className="app-shell">
+      <div className="evil-eye-bg" aria-hidden="true">
+        <EvilEye
+          eyeColor="#18023c"
+          backgroundColor="#120f17"
+          intensity={2}
+          pupilSize={0.6}
+          irisWidth={0.35}
+          glowIntensity={0.25}
+          scale={1.5}
+          noiseScale={1}
+          pupilFollow={1}
+          flameSpeed={0.2}
+        />
+      </div>
+      <div className="mystic-overlay" aria-hidden="true" />
 
-        {/* START */}
-        {screen === "start" && (
-          <>
-            <p className="subtitle">
-              "Only the chosen ones can decode the memes..."
-            </p>
-
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
-              className="input"
-            />
-
-            <button onClick={startQuiz} className="btn">
-              Enter the Arena
-            </button>
-          </>
-        )}
-
-        {/* QUIZ */}
-        {screen === "quiz" && currentQ && (
-          <div key={index} className="quiz-shell fade-slide">
-            <div className="quiz-left">
-              <div className="progress-wrap">
-                <div className="progress-meta">
-                  <span>Question {index + 1}</span>
-                  <span>
-                    {index + 1}/{questions.length}
-                  </span>
+      <div className="app-content">
+        <div className={`container ${screen === "quiz" ? "quiz-container" : ""}`}>
+          {screen === "quiz" && currentQ ? (
+            <div key={index} className="quiz-layout fade-slide">
+              <div className="quiz-question-card">
+                <div>
+                  <h1 className="title">🔮 Mystic Meme Quiz</h1>
+                  <div className="progress-wrap">
+                    <div className="progress-meta">
+                      <span>Question {index + 1}</span>
+                      <span>
+                        {index + 1}/{questions.length}
+                      </span>
+                    </div>
+                    <div className="progress">
+                      <div ref={progressRef} className="progress-fill" />
+                    </div>
+                  </div>
                 </div>
-                <div className="progress">
-                  <div ref={progressRef} className="progress-fill" />
+
+                <div className="question-block">
+                  <h2 className="question">{currentQ.question}</h2>
+                  <div className="options">
+                    {currentQ.options.map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => handleAnswer(opt)}
+                        className={`btn option-btn ${
+                          selected === opt ? "option-selected" : ""
+                        } ${selected && selected !== opt ? "option-dimmed" : ""}`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <h2 className="question">{currentQ.question}</h2>
+              <div className="quiz-image-card">
+                <div className="quiz-image-inner">
+                  <Image
+                    src={currentQ.image}
+                    alt="Meme question"
+                    fill
+                    unoptimized
+                    className="quiz-image"
+                    priority
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="card">
+              <h1 className="title">🔮 Mystic Meme Quiz</h1>
 
-              <div className="options">
-                {currentQ.options.map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => handleAnswer(opt)}
-                    className={`btn option-btn ${
-                      selected === opt ? "option-selected" : ""
-                    } ${selected && selected !== opt ? "option-dimmed" : ""}`}
-                  >
-                    {opt}
+              {/* START */}
+              {screen === "start" && (
+                <>
+                  <p className="subtitle">
+                    "Only the chosen ones can decode the memes..."
+                  </p>
+
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="input"
+                  />
+
+                  <button onClick={startQuiz} className="btn">
+                    Enter the Arena
                   </button>
-                ))}
-              </div>
+                </>
+              )}
+
+              {/* RESULT */}
+              {screen === "result" && (
+                <>
+                  <h2 className="score">✨ Your Score: {score}</h2>
+
+                  <div className="leaderboard">
+                    <h3>🏆 Leaderboard</h3>
+                    {scores.map((s: any, i: number) => (
+                      <div key={i} className="row">
+                        <span className="row-user">
+                          <span className="rank-badge">#{i + 1}</span>
+                          <span>{s.name}</span>
+                        </span>
+                        <span>{s.score}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIndex(0);
+                      setScore(0);
+                      setSelected(null);
+                      setScreen("start");
+                    }}
+                    className="btn"
+                  >
+                    Play Again
+                  </button>
+                </>
+              )}
             </div>
-
-            <div className="quiz-right">
-              <Image
-                src={currentQ.image}
-                alt="Meme question visual"
-                width={720}
-                height={480}
-                className="image"
-                priority
-              />
-            </div>
-          </div>
-        )}
-
-        {/* RESULT */}
-        {screen === "result" && (
-          <>
-            <h2 className="score">✨ Your Score: {score}</h2>
-
-            <div className="leaderboard">
-              <h3>🏆 Leaderboard</h3>
-              {scores.map((s: any, i: number) => (
-                <div key={i} className="row">
-                  <span>{s.name}</span>
-                  <span>{s.score}</span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                setIndex(0);
-                setScore(0);
-                setSelected(null);
-                setScreen("start");
-              }}
-              className="btn"
-            >
-              Play Again
-            </button>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

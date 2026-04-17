@@ -9,7 +9,7 @@ export const questions = [
   },
   {
     id: 2,
-    image: "/memes/drake.jpg",
+    image: "/memes/drake.gif",
     question: "Which meme shows Drake approving and rejecting choices?",
     options: ["Doge", "Pepe", "Drake Hotline Bling", "NPC"],
     answer: "Drake Hotline Bling",
