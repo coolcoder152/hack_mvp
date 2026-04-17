@@ -1,77 +1,148 @@
 "use client";
-
 import { useState } from "react";
+import { questions } from "./lib/questions";
 
 export default function Home() {
-  const [input, setInput] = useState("");
-  const [output, setOutput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [screen, setScreen] = useState<"start" | "quiz" | "result">("start");
+  const [name, setName] = useState("");
+  const [index, setIndex] = useState(0);
+  const [score, setScore] = useState(0);
 
-  const generateSteps = async () => {
-    if (!input.trim()) return;
+  const currentQ = questions[index];
 
-    setLoading(true);
-    setError("");
-    setOutput("");
+  // Start quiz
+  const startQuiz = () => {
+    if (!name) return alert("Enter your name");
+    setScreen("quiz");
+  };
 
-    try {
-      const res = await fetch("/api/task", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ task: input }),
-      });
+  // Handle answer
+  const handleAnswer = (opt: string) => {
+    if (opt === currentQ.answer) {
+      setScore((prev) => prev + 1);
+    }
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Something went wrong");
-      }
-
-      setOutput(data.result);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (index + 1 < questions.length) {
+      setIndex(index + 1);
+    } else {
+      saveScore();
+      setScreen("result");
     }
   };
 
+  // Save leaderboard
+  const saveScore = () => {
+    const prev = JSON.parse(localStorage.getItem("scores") || "[]");
+
+    const updated = [...prev, { name, score }];
+    localStorage.setItem("scores", JSON.stringify(updated));
+  };
+
+  // Load leaderboard
+  const scores = JSON.parse(localStorage.getItem("scores") || "[]")
+    .sort((a: any, b: any) => b.score - a.score)
+    .slice(0, 5);
+
   return (
-    <div style={{ padding: 40, fontFamily: "sans-serif", maxWidth: 700 }}>
-      <h1>AI Task Decomposer</h1>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#0f0f1a",
+        color: "#e0e0ff",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <div style={{ textAlign: "center", maxWidth: 400 }}>
+        <h1>🔮 Mystic Meme Quiz</h1>
 
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Enter a big task..."
-        style={{
-          width: "100%",
-          padding: 10,
-          marginTop: 10,
-          marginBottom: 10,
-        }}
-      />
+        {/* START SCREEN */}
+        {screen === "start" && (
+          <>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter your name"
+              style={{
+                padding: 10,
+                marginTop: 20,
+                width: "100%",
+                borderRadius: 8,
+                border: "none",
+              }}
+            />
 
-      <button onClick={generateSteps} disabled={loading}>
-        {loading ? "Generating..." : "Generate"}
-      </button>
+            <button
+              onClick={startQuiz}
+              style={buttonStyle}
+            >
+              Enter the Arena
+            </button>
+          </>
+        )}
 
-      {error && (
-        <p style={{ color: "red", marginTop: 20 }}>{error}</p>
-      )}
+        {/* QUIZ SCREEN */}
+        {screen === "quiz" && currentQ && (
+          <>
+            <img
+              src={currentQ.image}
+              width={300}
+              style={{ borderRadius: 10 }}
+            />
 
-      <div
-        style={{
-          marginTop: 20,
-          whiteSpace: "pre-wrap",
-          lineHeight: 1.6,
-        }}
-      >
-        {output}
+            <h2 style={{ marginTop: 20 }}>{currentQ.question}</h2>
+
+            {currentQ.options.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => handleAnswer(opt)}
+                style={buttonStyle}
+              >
+                {opt}
+              </button>
+            ))}
+          </>
+        )}
+
+        {/* RESULT SCREEN */}
+        {screen === "result" && (
+          <>
+            <h2>✨ Your Score: {score}</h2>
+
+            <h3>🏆 Leaderboard</h3>
+
+            {scores.map((s: any, i: number) => (
+              <p key={i}>
+                {s.name} — {s.score}
+              </p>
+            ))}
+
+            <button
+              onClick={() => {
+                setIndex(0);
+                setScore(0);
+                setScreen("start");
+              }}
+              style={buttonStyle}
+            >
+              Play Again
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 }
+
+const buttonStyle = {
+  display: "block",
+  width: "100%",
+  padding: 12,
+  marginTop: 10,
+  borderRadius: 10,
+  border: "none",
+  background: "#1f1f3a",
+  color: "white",
+  cursor: "pointer",
+};
